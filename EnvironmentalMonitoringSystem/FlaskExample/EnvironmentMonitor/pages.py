@@ -1,6 +1,9 @@
+
 from flask import Blueprint, render_template, request, jsonify
 from .TemperatureDB import TemperatureDB
-from .temp_reading import read_temperature
+from .temp_reading import read_temperature, Temperature
+from .humidity_reading import read_humidity, Humidity
+from .HumidityDB import HumidityDB
 import matplotlib.dates as mdates
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -17,19 +20,35 @@ def home():
 def about():
     return render_template('pages/about.html')
 
-
 @bp.route('/api/temperature', methods=['GET'])
 def get_temperature():
-    temp_obj = read_temperature()  # ✅ renamed to avoid confusion
-
+    temperature = read_temperature()
     temperature_db = TemperatureDB()
-    temperature_db.insert_temperature(temp_obj)
+    temperature_db.insert_temperature(temperature)
     temperature_db.close()
 
     return jsonify({
-        "temperature": temp_obj.get_value(),
+        "temperature": temperature.get_value(),
         "unit": "°C"
     })
+
+@bp.route('/api/humidity', methods=['GET'])
+def get_humidity():
+    humidity = read_humidity()
+    humidity_db = HumidityDB()
+    humidity_db.insert_humidity(humidity)
+    humidity_db.close()
+
+    return jsonify({
+        "humidity": humidity.get_value(),
+        "unit": "%"
+    })
+
+    return jsonify({
+        "temperature": temperature.get_value(),
+        "unit": "°C"
+    })
+
 
 
 @bp.route('/temperature-by-date', methods=['GET'])
@@ -44,11 +63,14 @@ def temperature_by_date():
         date_str, rows = temperaturedb.get_temperatures_by_date_from_timestamp(timestamp)
     except ValueError:
         return jsonify({"error": "Invalid timestamp"}), 400
+    
+    temperaturedb.close()
 
     if not rows:
         return jsonify({"message": f"No data for {date_str}"}), 404
 
     # Extract data
+
     times = []
     for row in rows:
         ts = row[1]
@@ -57,7 +79,8 @@ def temperature_by_date():
             times.append(datetime.fromtimestamp(ts))
         else:
             times.append(datetime.strptime(ts, "%Y-%m-%d %H:%M:%S"))
-
+   
+    # times = [datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S") for row in rows]
     temps = [row[0] for row in rows]
 
     # Plot graph
@@ -72,6 +95,7 @@ def temperature_by_date():
 
     plt.xticks(rotation=45)
     plt.grid(True)
+
     plt.tight_layout()
 
     # Convert to image
@@ -81,7 +105,6 @@ def temperature_by_date():
 
     image_base64 = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
-    plt.close()  # ✅ prevents memory issues
 
     return jsonify({
         "date": date_str,
