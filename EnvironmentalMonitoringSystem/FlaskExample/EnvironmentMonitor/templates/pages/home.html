@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block header %}
+<h2>Home</h2>
+{% endblock %}
+
+{% block content %}
+<p>
+  Learn more about this project by visiting the 
+  <a href="{{ url_for('pages.about') }}">About page</a>.
+</p>
+
+<hr>
+
+<h3>
+  Temperature: <span id="temperature">--</span> °C
+</h3>
+
+<script>
+function fetchTemperature() {
+    fetch('/api/temperature')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('temperature').textContent = data.temperature;
+        })
+        .catch(error => {
+            console.error('Error fetching temperature:', error);
+            document.getElementById('temperature').textContent = 'Error';
+        });
+}
+
+setInterval(fetchTemperature, 5000);
+fetchTemperature();
+</script>
+
+<hr>
+
+<h4>Get Temperature Graph by Date</h4>
+
+<input type="date" id="dateInput">
+<button onclick="fetchTemperatureGraph()">Get Graph</button>
+
+<br><br>
+
+<img id="graphImage" style="max-width:600px; display:none;">
+
+<script>
+function fetchTemperatureGraph() {
+    const dateValue = document.getElementById("dateInput").value;
+
+    if (!dateValue) {
+        alert("Please select a date");
+        return;
+    }
+
+    const timestamp = Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000);
+
+    fetch(`/temperature-by-date?timestamp=${timestamp}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.graph) {
+                const img = document.getElementById("graphImage");
+                img.src = "data:image/png;base64," + data.graph;
+                img.style.display = "block";
+            } else {
+                alert(data.message || "No data found");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("Failed to fetch data");
+        });
+}
+</script>
+{% endblock %}
