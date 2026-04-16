@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h2>{% block title %}Home{% endblock title %}</h2>
+{% endblock header %}
+
+{% block content %}
+  <p>
+    Learn more about this project by visiting the 
+    <a href="{{ url_for('pages.about') }}">About page</a>.
+  </p>
+
+  <hr>
+
+  <!-- TEMPERATURE -->
+  <h3>
+    Temperature: <span id="temperature">--</span> °C
+  </h3>
+
+  <script>
+    function fetchTemperature() {
+        fetch('/api/temperature')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('temperature').textContent = data.temperature;
+            })
+            .catch(error => {
+                console.error('Error fetching temperature:', error);
+                document.getElementById('temperature').textContent = 'Error';
+            });
+    }
+
+    let tempInterval;
+
+    function startTemperatureUpdates() {
+        tempInterval = setInterval(fetchTemperature, 5000);
+    }
+
+    function stopTemperatureUpdates() {
+        clearInterval(tempInterval);
+    }
+
+    startTemperatureUpdates();
+    fetchTemperature();
+  </script>
+
+
+  <hr>
+
+  <!-- TEMPERATURE GRAPH -->
+  <h4>Get Temperature Graph by Date</h4>
+
+  <label for="dateInput">Select Date:</label>
+  <input type="date" id="dateInput" style="padding: 8px; font-size: 16px; margin-top: 5px;">
+
+  <button onclick="fetchTemperatureGraph()">Get Graph</button>
+
+  <br><br>
+
+  <img id="graphImage" 
+       alt="Temperature Graph will appear here" 
+       style="max-width: 600px; display: none; border: 1px solid #ccc; padding: 10px;">
+
+  <script>
+    function fetchTemperatureGraph() {
+        stopTemperatureUpdates();
+
+        const dateValue = document.getElementById("dateInput").value;
+
+        if (!dateValue) {
+            alert("Please select a date");
+            return;
+        }
+
+        const timestamp = Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000);
+
+        fetch(`/temperature-by-date?timestamp=${timestamp}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.graph) {
+                    const img = document.getElementById("graphImage");
+                    img.src = "data:image/png;base64," + data.graph;
+                    img.style.display = "block";
+                } else {
+                    alert(data.message || "No data found");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to fetch data");
+            })
+            .finally(() => {
+                startTemperatureUpdates();
+            });
+    }
+  </script>
+
+
+  <hr>
+
+  <!-- HUMIDITY -->
+  <h3>
+    Humidity: <span id="humidity">--</span> %
+  </h3>
+
+  <script>
+    function fetchHumidity() {
+        fetch('/api/humidity')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('humidity').textContent = data.humidity;
+            })
+            .catch(error => {
+                console.error('Error fetching humidity:', error);
+                document.getElementById('humidity').textContent = 'Error';
+            });
+    }
+
+    let humidityInterval;
+
+    function startHumidityUpdates() {
+        humidityInterval = setInterval(fetchHumidity, 5000);
+    }
+
+    function stopHumidityUpdates() {
+        clearInterval(humidityInterval);
+    }
+
+    startHumidityUpdates();
+    fetchHumidity();
+  </script>
+
+
+  <hr>
+
+  <!-- GAS -->
+  <h3>
+    Gas Level: <span id="gas">--</span> TVOC
+  </h3>
+
+  <script>
+    function fetchGas() {
+        fetch('/api/gas')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('gas').textContent = data.gas;
+            })
+            .catch(error => {
+                console.error('Error fetching gas:', error);
+                document.getElementById('gas').textContent = 'Error';
+            });
+    }
+
+    let gasInterval;
+
+    function startGasUpdates() {
+        gasInterval = setInterval(fetchGas, 5000);
+    }
+
+    function stopGasUpdates() {
+        clearInterval(gasInterval);
+    }
+
+    startGasUpdates();
+    fetchGas();
+  </script>
+
+{% endblock content %}
