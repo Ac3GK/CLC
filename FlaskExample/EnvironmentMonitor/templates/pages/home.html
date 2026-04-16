@@ -2,19 +2,19 @@
 
 {% block header %}
   <h2>{% block title %}Home{% endblock title %}</h2>
-  
 {% endblock header %}
 
 {% block content %}
   <p>
-    Learn more about this project by visiting the <a href="{{ url_for('pages.about') }}">About page</a>.
+    Learn more about this project by visiting the 
+    <a href="{{ url_for('pages.about') }}">About page</a>.
   </p>
 
-
-  
   <hr>
+
+  <!-- TEMPERATURE -->
   <h3>
-  Temperature: <span id="temperature">--</span> °C
+    Temperature: <span id="temperature">--</span> °C
   </h3>
 
   <script>
@@ -33,22 +33,21 @@
     let tempInterval;
 
     function startTemperatureUpdates() {
-        // Fetch temperature every 5 seconds
-        setInterval(fetchTemperature, 5000)
-        // Fetch temperature every 1 hour
-        // tempInterval = setInterval(fetchTemperature, 3600000);
+        tempInterval = setInterval(fetchTemperature, 5000);
     }
 
     function stopTemperatureUpdates() {
         clearInterval(tempInterval);
     }
+
     startTemperatureUpdates();
-    // Initial fetch
     fetchTemperature();
   </script>
-  
+
 
   <hr>
+
+  <!-- TEMPERATURE GRAPH -->
   <h4>Get Temperature Graph by Date</h4>
 
   <label for="dateInput">Select Date:</label>
@@ -73,9 +72,7 @@
             return;
         }
 
-        const timestamp = Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000
-        );
-        console.log('The timestamp %s is ', timestamp);
+        const timestamp = Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000);
 
         fetch(`/temperature-by-date?timestamp=${timestamp}`)
             .then(response => response.json())
@@ -92,17 +89,18 @@
                 console.error("Error:", error);
                 alert("Failed to fetch data");
             })
-             .finally(() => {
+            .finally(() => {
                 startTemperatureUpdates();
             });
     }
   </script>
 
 
-
   <hr>
+
+  <!-- HUMIDITY -->
   <h3>
-  Humidity: <span id="humidity">--</span> %
+    Humidity: <span id="humidity">--</span> %
   </h3>
 
   <script>
@@ -121,18 +119,50 @@
     let humidityInterval;
 
     function startHumidityUpdates() {
-        // Fetch humidity every 5 seconds
-        setInterval(fetchHumidity, 5000)
-        // Fetch humidity every 1 hour
-        // tempInterval = setInterval(fetchTemperature, 3600000);
+        humidityInterval = setInterval(fetchHumidity, 5000);
     }
 
     function stopHumidityUpdates() {
         clearInterval(humidityInterval);
     }
+
     startHumidityUpdates();
-    // Initial fetch
     fetchHumidity();
   </script>
-  
+
+
+  <hr>
+
+  <!-- GAS -->
+  <h3>
+    Gas Level: <span id="gas">--</span> TVOC
+  </h3>
+
+  <script>
+    function fetchGas() {
+        fetch('/api/gas')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('gas').textContent = data.gas;
+            })
+            .catch(error => {
+                console.error('Error fetching gas:', error);
+                document.getElementById('gas').textContent = 'Error';
+            });
+    }
+
+    let gasInterval;
+
+    function startGasUpdates() {
+        gasInterval = setInterval(fetchGas, 5000);
+    }
+
+    function stopGasUpdates() {
+        clearInterval(gasInterval);
+    }
+
+    startGasUpdates();
+    fetchGas();
+  </script>
+
 {% endblock content %}
