@@ -39,8 +39,16 @@ def write_register(reg, value):
     bus.write_byte_data(HTS221_ADDRESS, reg, value)
 
 def read_temperature():
-    # Enable the sensor
-    write_register(CTRL_REG1, 0x80)
+    # Set Power ON and 1Hz Update Rate (0x81)
+    write_register(0x20, 0x81) 
+    
+    # Wait for the "Data Ready" bit (Bit 0 in Status Register 0x27)
+    # This ensures we aren't reading empty registers
+    for _ in range(10):
+        status = read_register(0x27)
+        if status & 0x01: # Temperature data available
+            break
+        time.sleep(0.1)
 
     # Read calibration data
     T0_degC = read_register(T0_DEGC_X8)
@@ -70,8 +78,10 @@ def read_temperature():
 
     temperature = T0_degC + (Temp_out - T0_out) * (T1_degC - T0_degC) / (T1_out - T0_out)
     temperature = round(temperature, 2)
-    temperature = Temperature(temperature, timestamp)
-    return round(temperature, 2)
+    # Revised temp_reading.py
+    temperature = round(temperature, 2) # Round the float first
+    temp_obj = Temperature(temperature, timestamp) # Wrap it in the class
+    return temp_obj # ? Return the object
 
 # Test the sensor
 if __name__ == "__main__":

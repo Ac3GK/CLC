@@ -6,7 +6,6 @@ class GasDB:
     def __init__(self):
         self.conn = sqlite3.connect("gas.db")
         self.cursor = self.conn.cursor()
-
         self.cursor.execute("""
         CREATE TABLE IF NOT EXISTS gas_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,3 +24,20 @@ class GasDB:
 
     def close(self):
         self.conn.close()
+    
+    # INDENT THIS ENTIRE SECTION:
+    def get_gas_by_date_from_timestamp(self, timestamp):
+        try:
+            dt = datetime.fromtimestamp(int(timestamp))
+            date_str = dt.strftime('%Y-%m-%d')
+        except Exception:
+            raise ValueError("Invalid timestamp")
+        
+        query = """
+            SELECT gas, timestamp
+            FROM gas_log
+            WHERE DATE(timestamp) = ?
+            ORDER BY timestamp
+        """
+        rows = self.cursor.execute(query, (date_str,)).fetchall()
+        return date_str, rows

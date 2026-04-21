@@ -8,9 +8,11 @@ from .temp_reading import read_temperature, Temperature
 from .humidity_reading import read_humidity, Humidity
 from .HumidityDB import HumidityDB
 
-# ✅ GAS FIXED IMPORT
-from .gas_reading import get_and_store_gas
+# GAS
+from .gas_reading import read_gas_sensor
 from .GasDB import GasDB
+
+from .utils import get_stats_from_list
 
 import matplotlib.dates as mdates
 from datetime import datetime
@@ -45,7 +47,7 @@ def get_temperature():
 
     return jsonify({
         "temperature": temperature.get_value(),
-        "unit": "°C"
+        "unit": "\u00b0C"
     })
 
 
@@ -63,21 +65,26 @@ def get_humidity():
     })
 
 
-# ✅ FIXED GAS ROUTE
+# ? FIXED GAS ROUTE
 @bp.route('/api/gas', methods=['GET'])
 def get_gas():
-    gas = get_and_store_gas()
+    gas = read_gas_sensor() # Update this function call
+
+    gas_db = GasDB()
+    gas_db.insert_gas(gas)
+    gas_db.close()
 
     return jsonify({
         "gas": gas.get_value(),
-        "unit": "TVOC"
+        "unit": "VOC"
     })
 
 
 # -------------------- GRAPH ROUTES --------------------
 
-@bp.route('/temperature-by-date', methods=['GET'])
+@bp.route('/api/temperature-by-date', methods=['GET']) # Added /api/
 def temperature_by_date():
+    # ... rest of your code
     timestamp = request.args.get('timestamp')
     temperaturedb = TemperatureDB()
 
@@ -110,7 +117,7 @@ def temperature_by_date():
     plt.figure(figsize=(10, 5))
     plt.plot(times, temps, marker='o')
     plt.xlabel("Time")
-    plt.ylabel("Temperature (°C)")
+    plt.ylabel("Temperature (\u00b0C)")
     plt.title(f"Temperature on {date_str}")
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -131,4 +138,35 @@ def temperature_by_date():
     return jsonify({
         "date": date_str,
         "graph": image_base64
+    })
+
+@bp.route('/api/stats-by-date', methods=['GET'])
+def stats_by_date():
+    timestamp = request.args.get('timestamp')
+    if not timestamp:
+        return jsonify({"error": "timestamp is required"}), 400
+
+    temp_db = TemperatureDB()
+    hum_db = HumidityDB()
+    gas_db = GasDB()
+
+    try:
+        _, temp_rows = temp_db.get_temperatures_by_date_from_timestamp(timestamp)
+        _, hum_rows = hum_db.get_humidities_by_date_from_timestamp(timestamp)
+        _, gas_rows = gas_db.get_gas_by_date_from_timestamp(timestamp)
+    finally:
+        # Always close connections
+        temp_db.close()
+        hum_db.close()
+        gas_db.close()
+
+    # Apply your BST logic from utils.py
+    t_min, t_max = get_stats_from_list([r[0] for r in temp_rows])
+    h_min, h_max = get_stats_from_list([r[0] for r in hum_rows])
+    g_min, g_max = get_stats_from_list([r[0] for r in gas_rows])
+
+    return jsonify({
+        "temperature": {"min": t_min, "max": t_max},
+        "humidity": {"min": h_min, "max": h_max},
+        "gas": {"min": g_min, "max": g_max}
     })

@@ -1,168 +1,286 @@
 {% extends 'base.html' %}
 
+
+
 {% block header %}
+
   <h2>{% block title %}Home{% endblock title %}</h2>
+
 {% endblock header %}
 
+
+
 {% block content %}
+
   <p>
+
     Learn more about this project by visiting the 
+
     <a href="{{ url_for('pages.about') }}">About page</a>.
+
   </p>
 
-  <hr>
-
-  <!-- TEMPERATURE -->
-  <h3>
-    Temperature: <span id="temperature">--</span> °C
-  </h3>
-
-  <script>
-    function fetchTemperature() {
-        fetch('/api/temperature')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('temperature').textContent = data.temperature;
-            })
-            .catch(error => {
-                console.error('Error fetching temperature:', error);
-                document.getElementById('temperature').textContent = 'Error';
-            });
-    }
-
-    let tempInterval;
-
-    function startTemperatureUpdates() {
-        tempInterval = setInterval(fetchTemperature, 5000);
-    }
-
-    function stopTemperatureUpdates() {
-        clearInterval(tempInterval);
-    }
-
-    startTemperatureUpdates();
-    fetchTemperature();
-  </script>
 
 
   <hr>
 
-  <!-- TEMPERATURE GRAPH -->
-  <h4>Get Temperature Graph by Date</h4>
+
+
+  <section>
+
+    <h3>Live Environment Data</h3>
+
+    <p>Temperature: <span id="temperature">--</span> &deg;C</p>
+
+    <p>Humidity: <span id="humidity">--</span> %</p>
+
+    <p>Air Quality: <span id="gas">--</span> TVOC (<span id="gas-label">--</span>)</p>
+
+  </section>
+
+
+
+  <hr>
+
+
+
+  <h4>Daily Analysis</h4>
+
+  <p>Select a date to generate the graph and calculate Min/Max extremes.</p>
+
+
 
   <label for="dateInput">Select Date:</label>
-  <input type="date" id="dateInput" style="padding: 8px; font-size: 16px; margin-top: 5px;">
 
-  <button onclick="fetchTemperatureGraph()">Get Graph</button>
+  <input type="date" id="dateInput" style="padding: 8px; font-size: 16px; margin-bottom: 10px;">
 
-  <br><br>
+  
 
-  <img id="graphImage" 
-       alt="Temperature Graph will appear here" 
-       style="max-width: 600px; display: none; border: 1px solid #ccc; padding: 10px;">
+  <button onclick="fetchGraph()">Generate Graph</button>
+
+  <button onclick="fetchStats()">Calculate Stats</button>
+
+
+
+  <div id="stats-output" style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; display: none;">
+
+      <h5 style="margin-top: 0;">Daily Extremes (BST Calculated)</h5>
+
+      <div id="stats-content"></div>
+
+  </div>
+
+
+
+  <br>
+
+  <img id="graphImage" alt="Temperature Graph" style="max-width: 600px; display: none; border: 1px solid #ccc; margin-top: 20px;">
+
+
 
   <script>
-    function fetchTemperatureGraph() {
-        stopTemperatureUpdates();
+
+    // Helper to determine VOC Level of Concern
+
+    function getVOCLevel(value) {
+
+        if (value <= 50) return { label: "Excellent", color: "#00e400" };
+
+        if (value <= 100) return { label: "Good", color: "#92d050" };
+
+        if (value <= 150) return { label: "Lightly Polluted", color: "#ffff00" };
+
+        if (value <= 200) return { label: "Moderately Polluted", color: "#ff7e00" };
+
+        if (value <= 300) return { label: "Heavily Polluted", color: "#ff0000" };
+
+        return { label: "Severely Polluted", color: "#7e0023" };
+
+    }
+
+
+
+    function fetchLive() {
+
+        fetch('/api/temperature').then(r => r.json()).then(d => document.getElementById('temperature').textContent = d.temperature);
+
+        fetch('/api/humidity').then(r => r.json()).then(d => document.getElementById('humidity').textContent = d.humidity);
+
+        
+
+        // home.html - Inside your updateData() function
+
+        fetch('/api/gas')
+
+            .then(res => res.json())
+
+            .then(data => {
+
+                const gasVal = data.gas;
+
+                const gasLabel = document.getElementById('gas-label');
+
+                document.getElementById('gas').innerText = gasVal;
+
+
+
+                // Revised logic for Raw Resistance (TVOC Ticks)
+
+                // Note: These thresholds are approximate for typical indoor air
+
+                if (gasVal > 28000) {
+
+                    gasLabel.innerText = "Excellent";
+
+                    gasLabel.style.color = "green";
+
+                } else if (gasVal > 20000) {
+
+                    gasLabel.innerText = "Good";
+
+                    gasLabel.style.color = "blue";
+
+                } else if (gasVal > 15000) {
+
+                    gasLabel.innerText = "Moderate";
+
+                    gasLabel.style.color = "orange";
+
+                } else {
+
+                    gasLabel.innerText = "High VOCs Detected";
+
+                    gasLabel.style.color = "red";
+
+                }
+
+            });
+
+    }
+
+
+
+    setInterval(fetchLive, 5000);
+
+    fetchLive();
+
+
+
+// Helper to get timestamp from the date input
+
+    function getSelectedTimestamp() {
 
         const dateValue = document.getElementById("dateInput").value;
 
         if (!dateValue) {
-            alert("Please select a date");
-            return;
+
+            alert("Please select a date first.");
+
+            return null;
+
         }
 
-        const timestamp = Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000);
+        return Math.floor(new Date(dateValue + "T00:00:00").getTime() / 1000);
 
-        fetch(`/temperature-by-date?timestamp=${timestamp}`)
+    }
+
+
+
+    // Function 1: Only handles the Graph
+
+    function fetchGraph() {
+
+        const timestamp = getSelectedTimestamp();
+
+        if (!timestamp) return;
+
+
+
+        fetch(`/api/temperature-by-date?timestamp=${timestamp}`)
+
             .then(response => response.json())
+
             .then(data => {
+
+                const img = document.getElementById("graphImage");
+
                 if (data.graph) {
-                    const img = document.getElementById("graphImage");
+
                     img.src = "data:image/png;base64," + data.graph;
+
                     img.style.display = "block";
+
                 } else {
-                    alert(data.message || "No data found");
+
+                    img.style.display = "none";
+
+                    alert("No graph data found for this date.");
+
                 }
+
             })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("Failed to fetch data");
-            })
-            .finally(() => {
-                startTemperatureUpdates();
-            });
+
+            .catch(err => console.error("Graph error:", err));
+
     }
-  </script>
 
 
-  <hr>
 
-  <!-- HUMIDITY -->
-  <h3>
-    Humidity: <span id="humidity">--</span> %
-  </h3>
+    // Function 2: Only handles the Stats
 
-  <script>
-    function fetchHumidity() {
-        fetch('/api/humidity')
-            .then(response => response.json())
+    function fetchStats() {
+
+        const timestamp = getSelectedTimestamp();
+
+        if (!timestamp) return;
+
+
+
+        fetch(`/api/stats-by-date?timestamp=${timestamp}`)
+
+            .then(res => res.json())
+
             .then(data => {
-                document.getElementById('humidity').textContent = data.humidity;
+
+                const statsDiv = document.getElementById('stats-output');
+
+                const content = document.getElementById('stats-content');
+
+                
+
+                if (data.error) {
+
+                    statsDiv.style.display = "none";
+
+                    alert("No statistics found for this date.");
+
+                } else {
+
+                    content.innerHTML = `
+
+                        <ul style="list-style: none; padding: 0;">
+
+                            <li><strong>Temp:</strong> ${data.temperature.min}&deg;C to ${data.temperature.max}&deg;C</li>
+
+                            <li><strong>Humidity:</strong> ${data.humidity.min}% to ${data.humidity.max}%</li>
+
+                            <li><strong>Gas Index:</strong> ${data.gas.min} to ${data.gas.max}</li>
+
+                        </ul>
+
+                    `;
+
+                    statsDiv.style.display = "block";
+
+                }
+
             })
-            .catch(error => {
-                console.error('Error fetching humidity:', error);
-                document.getElementById('humidity').textContent = 'Error';
-            });
+
+            .catch(err => console.error("Stats Error:", err));
+
     }
 
-    let humidityInterval;
-
-    function startHumidityUpdates() {
-        humidityInterval = setInterval(fetchHumidity, 5000);
-    }
-
-    function stopHumidityUpdates() {
-        clearInterval(humidityInterval);
-    }
-
-    startHumidityUpdates();
-    fetchHumidity();
-  </script>
-
-
-  <hr>
-
-  <!-- GAS -->
-  <h3>
-    Gas Level: <span id="gas">--</span> TVOC
-  </h3>
-
-  <script>
-    function fetchGas() {
-        fetch('/api/gas')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('gas').textContent = data.gas;
-            })
-            .catch(error => {
-                console.error('Error fetching gas:', error);
-                document.getElementById('gas').textContent = 'Error';
-            });
-    }
-
-    let gasInterval;
-
-    function startGasUpdates() {
-        gasInterval = setInterval(fetchGas, 5000);
-    }
-
-    function stopGasUpdates() {
-        clearInterval(gasInterval);
-    }
-
-    startGasUpdates();
-    fetchGas();
   </script>
 
 {% endblock content %}
+

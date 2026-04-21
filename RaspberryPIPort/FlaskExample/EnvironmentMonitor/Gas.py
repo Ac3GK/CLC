@@ -10,4 +10,5 @@ class Gas:
         return self.timestamp
 
     def __str__(self):
-        return "Gas Level: " + str(self.value)
+        # Update string from "Gas Level" to "VOC Index"
+        return "VOC Index: " + str(self.value)
